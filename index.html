@@ -5,14 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bad Guy Motors | Under Construction</title>
 
-  <!-- ⚡️ Performance hints -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <link rel="preload" href="bgm_badguymotors_logo_invert.png" as="image">
 
   <style>
-    /* ===== Core Layout ===== */
     html, body{
       height:100%;
       margin:0;
@@ -21,31 +19,44 @@
       font-family:"Barlow",sans-serif;
       display:flex;
       flex-direction:column;
-      overflow-x:hidden;      /* allow vertical scroll only       */
-      overflow-y:auto;        /* enables scroll on long screens    */
-      scroll-behavior:smooth; /* nice scrolling                    */
+      overflow-x:hidden;
+      overflow-y:auto;
+      scroll-behavior:smooth;
     }
+    /* WebGL background layer */
+    #bg{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      z-index:1;
+      pointer-events:none;
+    }
+    #bg canvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+    }
+
     .container{
       position:relative;
-      z-index:2;
+      z-index:2;               /* above WebGL */
       margin:auto;
       text-align:center;
       max-width:700px;
-      padding:3rem 1rem 4rem; /* bottom pad so footer scrolls     */
+      padding:3rem 1rem 4rem;
     }
-
     .logo{
       width:220px;
       max-width:60vw;
       margin-bottom:1.5rem;
       animation:pulse 6s ease-in-out infinite;
-    
     }
     @keyframes pulse{
       0%,100%{transform:scale(1);opacity:.95}
       50%    {transform:scale(1.06);opacity:1}
     }
-
     h1{
       font-size:3rem;
       margin:0 0 1rem;
@@ -60,49 +71,17 @@
       letter-spacing:1px;
       text-transform:uppercase;
     }
-    p{
-      font-size:1.2rem;
-      margin:.4rem 0;
-      line-height:1.4;
-    }
+    p{font-size:1.2rem;margin:.4rem 0;line-height:1.4}
     ul.coming{list-style:none;margin:0 0 1rem;padding:0;font-size:1.2rem}
     ul.coming li{margin:.3rem 0}
-
     a{color:#d50000;text-decoration:none}
     a:hover{text-decoration:underline}
     footer{margin-top:2rem;font-size:.85rem;opacity:.6}
-
-    /* ===== Smoke Effect ===== */
-    .smoke{
-      position:fixed;         /* fixed so it stays while scrolling */
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-      z-index:1;
-    }
-    .smoke span{
-      position:absolute;
-      bottom:-200px;
-      left:50%;
-      transform:translateX(-50%);
-      border-radius:50%;
-      background:radial-gradient(rgba(255,255,255,.35) 0%,rgba(255,255,255,0) 70%);
-      filter:blur(28px);      /* slightly lower blur for perf      */
-      opacity:0;
-      animation:rise 24s linear infinite;
-      will-change:transform,opacity;
-    }
-    @keyframes rise{
-      0%  {transform:translateX(-50%) translateY(0)  scale(.4);opacity:0}
-      10% {opacity:.45}
-      50% {opacity:.25}
-      100%{transform:translateX(-50%) translateY(-120vh) scale(1.8);opacity:0}
-    }
   </style>
 </head>
 <body>
-  <!-- Smoke Layer -->
-  <div class="smoke" id="smoke-layer"></div>
+  <!-- WebGL Background -->
+  <div id="bg"></div>
 
   <!-- Main Content -->
   <div class="container">
@@ -121,36 +100,157 @@
     <ul class="coming">
       <li>🔥 Smooth Criminal Liner</li>
       <li>🔥 Custom bumpers, running boards, mudflaps &amp; more</li>
-      <li>🔥 Built‑to‑order quality that hits harder than stock ever could</li>
+      <li>🔥 Built-to-order quality that hits harder than stock ever could</li>
     </ul>
 
-    <p><strong>Launch Date:</strong> August&nbsp;2025</p>
-    <p><strong>Have questions? Call the shop:</strong> <a href="tel:4035250432">403‑525‑0432</a></p>
+    <p><strong>Launch Date:</strong> September 11&nbsp;2025</p>
+    <p><strong>Have questions? Call the shop:</strong> <a href="tel:4035250432">403-525-0432</a></p>
 
     <p>In the meantime, follow our chaos:</p>
     <p>📸 <a href="https://www.instagram.com/badguymotors" target="_blank" rel="noopener"> @badguymotors</a><br>
-       📘 <a href="https://www.facebook.com/profile.php?id=61550053654713"    target="_blank" rel="noopener"> facebook.com/badguymotors</a></p>
+       📘 <a href="https://www.facebook.com/profile.php?id=61550053654713" target="_blank" rel="noopener"> facebook.com/badguymotors</a></p>
 
     <footer>
-      © <span id="year"></span> Bad Guy Motors. All rights reserved.
+      © <span id="year"></span> Bad Guy Motors. All rights reserved.
     </footer>
   </div>
 
+  <!-- Three.js + Shader -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script>
-    /* ==== Lighter smoke generation (20 puffs) ==== */
-    const smokeLayer = document.getElementById("smoke-layer");
-    const PUFFS = 20;
-    for (let i = 0; i < PUFFS; i++) {
-      const puff = document.createElement("span");
-      const size = 80 + Math.random() * 220;
-      puff.style.width = puff.style.height = `${size}px`;
-      puff.style.left  = `${Math.random() * 100}vw`;
-      puff.style.animationDelay = `${-Math.random() * 24}s`;
-      puff.style.animationDuration = `${18 + Math.random() * 14}s`;
-      smokeLayer.appendChild(puff);
+  (() => {
+    const wrap = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ antialias:false, powerPreference:"high-performance" });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    wrap.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), null);
+    scene.add(quad);
+
+    const frag = `
+      precision highp float;
+      uniform vec2  iResolution;
+      uniform float iTime;
+
+      uniform float uDensity;
+      uniform float uRise;
+      uniform float uWind;
+      uniform float uTurbulence;
+      uniform float uFill;
+      uniform float uContrast;
+      uniform float uGrain;
+      uniform float uQuality;
+
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453123); }
+      float noise(vec2 p){
+        vec2 i=floor(p), f=fract(p);
+        float a=hash(i), b=hash(i+vec2(1.,0.));
+        float c=hash(i+vec2(0.,1.)), d=hash(i+vec2(1.,1.));
+        vec2 u=f*f*(3.-2.*f);
+        return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;
+      }
+      float fbm(vec2 p){
+        float v=0., a=0.5;
+        mat2 m = mat2(1.6,1.2,-1.2,1.6);
+        for(int i=0;i<6;i++){
+          v += a * noise(p);
+          p = m * p;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      float bottomEmitter(float y, float fill){
+        float edge = mix(0.35, 1.05, fill);
+        float k = 1.0 - smoothstep(0.0, edge, y);
+        return pow(k, 1.1);
+      }
+
+      vec3 tonemap(vec3 x){ x=max(x, vec3(0.0)); return x/(1.0+x); }
+
+      void main(){
+        vec2 uv = gl_FragCoord.xy / iResolution.xy;
+        vec2 p = uv;
+        p.x *= iResolution.x/iResolution.y;
+
+        float t = iTime;
+        float rise = 0.12 * uRise;
+
+        float d = 0.0;
+        vec2 s1 = vec2(p.x + uWind*t*0.03, p.y - t*rise*0.6);
+        d += fbm(s1*1.2 + vec2(0.0, t*0.10)) * 0.9;
+
+        vec2 s2 = vec2(p.x*1.5 + uWind*t*0.05, p.y - t*rise*0.9);
+        d += fbm(s2*2.0 + vec2(0.0, -t*0.15)) * 0.7;
+
+        float q = mix(3.0, 5.0, uQuality);
+        vec2 s3 = vec2(p.x*2.2 + uWind*t*0.07, p.y - t*rise*1.25);
+        d += fbm(s3*q + vec2(t*0.12, 0.0)) * 0.55;
+
+        d /= 2.15;
+        d = pow(d, 1.35 + uTurbulence*0.08);
+        d *= uDensity;
+
+        float emit = bottomEmitter(uv.y, uFill);
+        d *= mix(0.6, 1.0, emit);
+
+        float topFade = smoothstep(0.85*uFill, 1.05, uv.y);
+        d *= (1.0 - 0.35*topFade);
+
+        float g = (noise(uv * iResolution.xy * (48.0 + uQuality*64.0) + iTime*10.0) - 0.5) * uGrain;
+
+        float smoke = clamp(d * uContrast + g, 0.0, 1.0);
+
+        float hx = smoothstep(0.0, 0.15, uv.x) * (1.0 - smoothstep(0.85,1.0,uv.x));
+        smoke *= mix(0.95, 1.0, hx);
+
+        vec3 tint = vec3(0.8, 0.85, 1.0);
+        vec3 col = vec3(smoke) * tint;
+        col = tonemap(col * 2.2);
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    const uniforms = {
+      iResolution:   { value: new THREE.Vector2(innerWidth, innerHeight) },
+      iTime:         { value: 0 },
+      uDensity:      { value: 0.4 },
+      uRise:         { value: 0.5 },
+      uWind:         { value: 0.15 },
+      uTurbulence:   { value: 1.0 },
+      uFill:         { value: 0.7 },
+      uContrast:     { value: 0.7 },
+      uGrain:        { value: 0.0 },
+      uQuality:      { value: 1.0 },
+    };
+
+    quad.material = new THREE.ShaderMaterial({
+      uniforms,
+      vertexShader: `void main(){gl_Position=vec4(position,1.0);}`,
+      fragmentShader: frag,
+      transparent:false, depthWrite:false, depthTest:false
+    });
+
+    let start = performance.now();
+    function tick(){
+      uniforms.iTime.value = (performance.now() - start)/1000;
+      renderer.render(scene, camera);
+      requestAnimationFrame(tick);
     }
-    /* Dynamic year */
+    tick();
+
+    addEventListener('resize', () => {
+      uniforms.iResolution.value.set(innerWidth, innerHeight);
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // dynamic year
     document.getElementById("year").textContent = new Date().getFullYear();
+  })();
   </script>
 </body>
 </html>
