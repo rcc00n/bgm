@@ -1,0 +1,13 @@
+# Retire only this project's old Netlify hostname/aliases.
+# All custom hostnames pass through to the original static payload unchanged.
+[build]
+  base = "."
+  command = "node scripts/build_retirement.mjs && node scripts/check_retirement.mjs"
+  publish = "ops/netlify-publish"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[edge_functions]]
+  function = "retired"
+  path = "/*"
