@@ -1,13 +1,19 @@
-# Historical Netlify publication
+# Historical Netlify hostname retirement
 
-This repository preserves its original application/source. Its Netlify configuration intentionally publishes only `ops/netlify-retired/` and a dependency-free Edge Function. Once that commit is published by the existing Netlify integration, all requests return HTTP 410 with an explicit retirement message and `X-Robots-Tag: noindex, nofollow, noarchive`. No application records, images, or source files are included in the static publish directory. Local application commands remain separate.
+This repository preserves the original holding page. The Edge handler returns HTTP 410 with a retirement message and noindex/no-store **only** when the request hostname is exactly `quiet-malabi-cb1fd5.netlify.app` or ends in `--quiet-malabi-cb1fd5.netlify.app` (its preview/branch/deploy aliases). No substring match is used.
 
-`node scripts/check_retirement.mjs` executes 30 method/path checks against the actual Edge handler and verifies the isolated publish directory. Netlify also runs this check before building. Verify the real Deploy Preview first, including `/`, an old HTML page, `/api/session`, `/data/users.json`, and an image path; each must return 410, the retirement body, and noindex. After merging, repeat these checks on the main Netlify hostname.
+For every other hostname, including `badguymotors.com` and `www.badguymotors.com`, the handler immediately calls `context.next()` without changing the response. There are no global custom headers or redirects. The publish directory contains the original `index.html` and logo, copied byte-for-byte; their SHA-256 values are pinned to original source commit d40704b5ee3e8b1746107a1ee13edab2e06a9d8a in `netlify-original-payload.json`. All local assets referenced by the original document are retained. External font/script references remain exactly as they were.
+
+## Checks and publication
+
+Run `node scripts/build_retirement.mjs && node scripts/check_retirement.mjs`. The check verifies retirement paths/methods, hostname boundaries, untouched custom-host response identity/headers/body, and exact source/output payload hashes. GitHub CI and Netlify builds use the same commands. The generated `ops/netlify-publish` directory is ignored by Git.
+
+Verify a real Netlify Deploy Preview returns 410/noindex for root, old pages, API-looking paths and assets. After a separately authorized merge, verify the main historical Netlify hostname. Independently check apex and www of the current BGM domain remain unchanged. This configuration does not alter DNS or custom-domain attachments.
 
 ## Scope and rollback
 
-This retires the currently published content through repository configuration. It does not stop provider builds, unpublish/delete the Netlify project, remove old immutable deployment URLs, revoke credentials, erase Git history, or alter DNS/custom-domain settings. Those provider controls require an authenticated owner session. Existing preview/deploy URLs may remain accessible until the provider removes them; do not claim historical data removal from this change.
+This retires content on the named Netlify hostnames through the existing Git integration. It does not stop builds, unpublish/delete the Netlify project, remove old immutable deploys, revoke credentials, erase Git history, or change provider settings. Old immutable deployments built before this handler may remain accessible until an authenticated provider owner removes them. A stale custom-domain attachment is left intact and passed through safely.
 
-Source rollback is a revert of the retirement configuration commit, followed by a separately authorized Netlify build. The original source is retained, so no reconstruction is required. A provider-level rollback is also possible for an owner using a previously published deploy. Do not change a protected live site's DNS to point to this historical deployment.
+Source rollback is a separately authorized revert and build; original files are retained. An authenticated owner can also restore a prior published deploy. Do not change a protected live site's DNS to point to this historical project.
 
-References: [Netlify configuration precedence](https://docs.netlify.com/build/configure-builds/file-based-configuration/), [Edge response API](https://docs.netlify.com/build/edge-functions/api/), [deploy rollback and locking](https://docs.netlify.com/deploy/manage-deploys/manage-deploys-overview/).
+References: [Netlify configuration precedence](https://docs.netlify.com/build/configure-builds/file-based-configuration/), [Edge response and context.next API](https://docs.netlify.com/build/edge-functions/api/), [deploy rollback](https://docs.netlify.com/deploy/manage-deploys/manage-deploys-overview/).
